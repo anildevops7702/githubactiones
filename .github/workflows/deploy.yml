@@ -12,43 +12,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Amazon Linux Docker container
+      - name: Run Deployment in Amazon Linux Container
         uses: addnab/docker-run-action@v3
         with:
           image: amazonlinux:2
           options: --entrypoint /bin/bash
+          env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION: ${{ secrets.AWS_REGION }}
+          run: |
+            # Install AWS CLI and Docker
+            yum install -y aws-cli docker
+            service docker start
 
-      - name: Install AWS CLI and Docker in Amazon Linux
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          yum install -y aws-cli docker
-          service docker start
+            # Log in to Amazon ECR
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 194722438687.dkr.ecr.ap-south-1.amazonaws.com/githubactiones
 
-      - name: Log in to Amazon ECR
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 194722438687.dkr.ecr.ap-south-1.amazonaws.com/githubactiones
+            # Build, tag, and push Docker image to ECR
+            IMAGE_URI=194722438687.dkr.ecr.ap-south-1.amazonaws.com/githubactiones:latest
+            docker build -t my-app .
+            docker tag my-app:latest $IMAGE_URI
+            docker push $IMAGE_URI
 
-      - name: Build, tag, and push Docker image to ECR
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          IMAGE_URI=194722438687.dkr.ecr.ap-south-1.amazonaws.com/githubactiones:latest
-          docker build -t my-app .
-          docker tag my-app:latest $IMAGE_URI
-          docker push $IMAGE_URI
-
-      - name: Update ECS service
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          aws ecs update-service --cluster github --service github --force-new-deployment
+            # Update ECS service
+            aws ecs update-service --cluster github --service github --force-new-deployment
 
