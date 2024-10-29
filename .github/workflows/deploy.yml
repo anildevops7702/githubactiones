@@ -22,8 +22,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
-          # Install AWS CLI and Docker
-          yum install -y aws-cli docker
+          # Start Docker service (if not already started)
           service docker start
 
           # Log in to Amazon ECR
